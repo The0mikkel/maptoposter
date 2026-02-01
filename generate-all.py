@@ -115,6 +115,11 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
         choices=["png", "svg", "pdf"],
         help="Output format for the poster (default: png)",
     )
+    parser.add_argument(
+        "--no-water",
+        action="store_true",
+        help="Do not render water features on the map",
+    )
 
     args = parser.parse_args()
     
@@ -153,6 +158,8 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
             cmd += f' --display-country "{args.display_country}"'
         if args.font_family:
             cmd += f' --font-family "{args.font_family}"'
+        if args.no_water:
+            cmd += ' --no-water'
         if args.output:
             output_file = f"{args.output}/{args.country}/{args.city}/{distance_text}/{size_text}"
             if args.output_subdir:

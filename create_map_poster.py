@@ -492,6 +492,7 @@ def create_poster(
     display_city=None,
     display_country=None,
     fonts=None,
+    water_display=True,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -579,7 +580,7 @@ def create_poster(
 
     # 3. Plot Layers
     # Layer 1: Polygons (filter to only plot polygon/multipolygon geometries, not points)
-    if water is not None and not water.empty:
+    if water_display and water is not None and not water.empty:
         # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
         water_polys = water[water.geometry.type.isin(["Polygon", "MultiPolygon"])]
         if not water_polys.empty:
@@ -985,6 +986,11 @@ Examples:
         choices=["png", "svg", "pdf"],
         help="Output format for the poster (default: png)",
     )
+    parser.add_argument(
+        "--no-water",
+        action="store_true",
+        help="Do not render water features on the map",
+    )
 
     args = parser.parse_args()
 
@@ -1070,6 +1076,7 @@ Examples:
                 display_city=args.display_city,
                 display_country=args.display_country,
                 fonts=custom_fonts,
+                water_display=not args.no_water,
             )
 
         print("\n" + "=" * 50)
