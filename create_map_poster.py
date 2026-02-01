@@ -152,8 +152,7 @@ def generate_output_filename(directory, city, theme_name, output_format):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     city_slug = city.lower().replace(" ", "_")
-    ext = output_format.lower()
-    filename = f"{city_slug}_{theme_name}_{timestamp}.{ext}"
+    filename = f"{city_slug}_{theme_name}"
     return os.path.join(directory, filename)
 
 
