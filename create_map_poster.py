@@ -492,6 +492,7 @@ def create_poster(
     display_country=None,
     fonts=None,
     water_display=True,
+    dpi=300,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -784,18 +785,29 @@ def create_poster(
     # 5. Save
     print(f"Saving to {output_file}...")
 
-    fmt = output_format.lower()
     save_kwargs = dict(
         facecolor=THEME["bg"],
         bbox_inches="tight",
         pad_inches=0.05,
     )
+    
+    formats = output_format.split("+")
+    
+    for fmt in formats:
+        fmt = fmt.lower()
+        if fmt not in ["png", "svg", "pdf"]:
+            print(f"⚠ Unsupported output format: {fmt}. Skipping.")
+            continue
+        
+        save_kwargs_tmp = save_kwargs.copy()
+        
+        # DPI matters mainly for raster formats
+        if fmt == "png":
+            save_kwargs_tmp["dpi"] = dpi
 
-    # DPI matters mainly for raster formats
-    if fmt == "png":
-        save_kwargs["dpi"] = 300
+        output_file_fmt = f"{output_file}.{fmt}"
 
-    plt.savefig(output_file, format=fmt, **save_kwargs)
+        plt.savefig(output_file_fmt, format=fmt, **save_kwargs_tmp)
 
     plt.close()
     print(f"✓ Done! Poster saved as {output_file}")
@@ -982,13 +994,18 @@ Examples:
         "--format",
         "-f",
         default="png",
-        choices=["png", "svg", "pdf"],
+        choices=["png", "svg", "pdf", "png+svg", "png+pdf", "svg+pdf", "png+svg+pdf"],
         help="Output format for the poster (default: png)",
     )
     parser.add_argument(
         "--no-water",
         action="store_true",
         help="Do not render water features on the map",
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
     )
 
     args = parser.parse_args()
@@ -1076,6 +1093,7 @@ Examples:
                 display_country=args.display_country,
                 fonts=custom_fonts,
                 water_display=not args.no_water,
+                dpi=args.dpi,
             )
 
         print("\n" + "=" * 50)
