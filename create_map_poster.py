@@ -562,7 +562,7 @@ def create_poster(
         railways = fetch_features(
             point,
             compensated_dist,
-            tags={"railway": ["rail", "light_rail", "subway"]},
+            tags={"railway": ["rail", "light_rail", "subway", "tram"]},
             name="railways",
         )
 
@@ -614,13 +614,16 @@ def create_poster(
             # Seperate rail lines into types
             rail_rail = rail_lines[rail_lines['railway'] == 'rail']
             rail_light = rail_lines[rail_lines['railway'] == 'light_rail']
+            rail_tram = rail_lines[rail_lines['railway'] == 'tram']
             rail_subway = rail_lines[rail_lines['railway'] == 'subway']
             if not rail_rail.empty:
-                rail_rail.plot(ax=ax, color=THEME['rail'], linewidth=0.6, zorder=1.0)
+                rail_rail.plot(ax=ax, color=THEME['rail'], linewidth=0.5, zorder=1.0)
             if not rail_light.empty:
-                rail_light.plot(ax=ax, color=THEME['rail_light'], linewidth=0.4, zorder=1.0)
+                rail_light.plot(ax=ax, color=THEME.get('rail_light', THEME['rail']), linewidth=0.4, zorder=0.97)
+            if not rail_tram.empty:
+                rail_tram.plot(ax=ax, color=THEME.get('rail_tram', THEME['rail_light']), linewidth=0.4, zorder=0.95)
             if not rail_subway.empty:
-                rail_subway.plot(ax=ax, color=THEME['rail_subway'], linewidth=0.4, zorder=1.0)
+                rail_subway.plot(ax=ax, color=THEME.get('rail_subway', THEME['rail_light']), linewidth=0.4, zorder=0.93)
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
     edge_colors = get_edge_colors_by_type(g_proj)
