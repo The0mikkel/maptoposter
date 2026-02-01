@@ -4,6 +4,8 @@
 import os
 import argparse
 import subprocess
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Get all files from themes directory
 THEMES_DIR = os.path.join(os.path.dirname(__file__), 'themes')
@@ -112,13 +114,24 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
         "--format",
         "-f",
         default="png",
-        choices=["png", "svg", "pdf"],
+        choices=["png", "svg", "pdf", "png+svg", "png+pdf", "svg+pdf", "png+svg+pdf"],
         help="Output format for the poster (default: png)",
     )
     parser.add_argument(
         "--no-water",
         action="store_true",
         help="Do not render water features on the map",
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=4,
+        help="Number of parallel threads for generating posters (default: 4)",
     )
 
     args = parser.parse_args()
@@ -142,32 +155,119 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
     height_text = f"{int(args.height)}in"
     size_text = f"{width_text}_x_{height_text}"
     
+    # Track successful and failed themes with timing
+    successful_themes = []
+    failed_themes = []
+    theme_times = {}
+    
+    # Record overall start time
+    overall_start_time = time.time()
+    
+    # Function to run a single theme generation
+    def generate_theme(theme):
+        try:
+            theme_start_time = time.time()
+            print(f"Generating poster with theme: {theme}...")
+            cmd = f'python3.13 create_map_poster.py --city "{args.city}" --country "{args.country}" --theme {theme} --distance {args.distance} --width {args.width} --height {args.height} --format {args.format}'
+            cmd += f' --dpi {args.dpi}'
+            if args.latitude:
+                cmd += f' --latitude {args.latitude}'
+            if args.longitude:
+                cmd += f' --longitude {args.longitude}'
+            if args.country_label:
+                cmd += f' --country-label "{args.country_label}"'
+            if args.display_city:
+                cmd += f' --display-city "{args.display_city}"'
+            if args.display_country:
+                cmd += f' --display-country "{args.display_country}"'
+            if args.font_family:
+                cmd += f' --font-family "{args.font_family}"'
+            if args.no_water:
+                cmd += ' --no-water'
+            if args.output:
+                output_file = f"{args.output}/{args.country}/{args.city}/{distance_text}/{size_text}"
+                if args.output_subdir:
+                    output_file = f"{output_file}/{args.output_subdir}"
+                cmd += f' --output "{output_file}"'
+            
+            result = subprocess.run(cmd, shell=True, capture_output=False)
+            
+            theme_elapsed_time = time.time() - theme_start_time
+            theme_times[theme] = theme_elapsed_time
+            
+            if result.returncode == 0:
+                print(f"Poster with theme {theme} generated. ({theme_elapsed_time:.1f}s)\n")
+                return (theme, True, None, theme_elapsed_time)
+            else:
+                error_msg = f"Process exited with code {result.returncode}"
+                print(f"Failed to generate poster with theme {theme}: {error_msg} ({theme_elapsed_time:.1f}s)\n")
+                return (theme, False, error_msg, theme_elapsed_time)
+        except Exception as exc:
+            theme_elapsed_time = time.time() - theme_start_time
+            theme_times[theme] = theme_elapsed_time
+            error_msg = str(exc)
+            print(f"Failed to generate poster with theme {theme}: {error_msg} ({theme_elapsed_time:.1f}s)\n")
+            return (theme, False, error_msg, theme_elapsed_time)
+    
     # Run create_map_poster.py to generate posters with the listed themes.
-    for theme in themes:
-        print(f"Generating poster with theme: {theme}...")
-        cmd = f'python3.13 create_map_poster.py --city "{args.city}" --country "{args.country}" --theme {theme} --distance {args.distance} --width {args.width} --height {args.height} --format {args.format}'
-        if args.latitude:
-            cmd += f' --latitude {args.latitude}'
-        if args.longitude:
-            cmd += f' --longitude {args.longitude}'
-        if args.country_label:
-            cmd += f' --country-label "{args.country_label}"'
-        if args.display_city:
-            cmd += f' --display-city "{args.display_city}"'
-        if args.display_country:
-            cmd += f' --display-country "{args.display_country}"'
-        if args.font_family:
-            cmd += f' --font-family "{args.font_family}"'
-        if args.no_water:
-            cmd += ' --no-water'
-        if args.output:
-            output_file = f"{args.output}/{args.country}/{args.city}/{distance_text}/{size_text}"
-            if args.output_subdir:
-                output_file = f"{output_file}/{args.output_subdir}"
-            cmd += f' --output "{output_file}"'
-        subprocess.run(cmd, shell=True)
-        print(f"Poster with theme {theme} generated.\n")
+    # First theme runs sequentially, rest run in parallel
+    if themes:
+        # Run first theme
+        first_theme = themes[0]
+        theme, success, error, elapsed = generate_theme(first_theme)
+        if success:
+            successful_themes.append(theme)
+        else:
+            failed_themes.append((theme, error))
         
-    print("\nAll posters generated successfully!")
+        # Run remaining themes in parallel
+        if len(themes) > 1:
+            remaining_themes = themes[1:]
+            with ThreadPoolExecutor(max_workers=args.threads) as executor:
+                futures = [executor.submit(generate_theme, theme) for theme in remaining_themes]
+                for future in as_completed(futures):
+                    try:
+                        theme, success, error, elapsed = future.result()
+                        if success:
+                            successful_themes.append(theme)
+                        else:
+                            failed_themes.append((theme, error))
+                    except Exception as exc:
+                        print(f"Theme generation raised an exception: {exc}")
+                        failed_themes.append(("unknown", str(exc)))
+    
+    # Calculate total time
+    total_elapsed_time = time.time() - overall_start_time
+    
+    # Print summary
+    print("\n" + "="*60)
+    print("GENERATION SUMMARY")
+    print("="*60)
+    print(f"Total themes: {len(themes)}")
+    print(f"Successful: {len(successful_themes)}")
+    print(f"Failed: {len(failed_themes)}")
+    
+    if successful_themes:
+        print(f"\n✓ Successfully generated themes:")
+        for theme in successful_themes:
+            theme_time = theme_times.get(theme, 0)
+            print(f"  - {theme} ({theme_time:.1f}s)")
+    
+    if failed_themes:
+        print(f"\n✗ Failed themes:")
+        for theme, error in failed_themes:
+            theme_time = theme_times.get(theme, 0)
+            print(f"  - {theme}: {error} ({theme_time:.1f}s)")
+        print("\nSome posters failed to generate. Check the errors above.")
+    else:
+        print("\nAll posters generated successfully!")
+    
+    # Print timing summary
+    print(f"\n" + "="*60)
+    print(f"Total execution time: {total_elapsed_time:.1f}s ({total_elapsed_time/60:.1f}m)")
+    if theme_times:
+        avg_time = sum(theme_times.values()) / len(theme_times)
+        print(f"Average time per theme: {avg_time:.1f}s")
+    print("="*60)
 
 
