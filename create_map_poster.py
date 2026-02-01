@@ -523,7 +523,7 @@ def create_poster(
 
     # Progress bar for data fetching
     with tqdm(
-        total=3,
+        total=4,
         desc="Fetching map data",
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
@@ -555,6 +555,15 @@ def create_poster(
             name="parks",
         )
         pbar.update(1)
+        
+        # 4. Fetch Railways
+        pbar.set_description("Downloading railways")
+        railways = fetch_features(
+            point,
+            compensated_dist,
+            tags={"railway": ["rail", "light_rail", "subway"]},
+            name="railways",
+        )
 
     print("✓ All data retrieved successfully!")
 
@@ -566,6 +575,7 @@ def create_poster(
 
     # Project graph to a metric CRS so distances and aspect are linear (meters)
     g_proj = ox.project_graph(g)
+    
 
     # 3. Plot Layers
     # Layer 1: Polygons (filter to only plot polygon/multipolygon geometries, not points)
@@ -590,6 +600,26 @@ def create_poster(
             except Exception:
                 parks_polys = parks_polys.to_crs(g_proj.graph['crs'])
             parks_polys.plot(ax=ax, facecolor=THEME['parks'], edgecolor='none', zorder=0.8)
+    if railways is not None and not railways.empty:
+        # Filter to only line geometries
+        rail_lines = railways[railways.geometry.type.isin(["LineString", "MultiLineString"])]
+        if not rail_lines.empty:
+            # Project railway features in the same CRS as the graph
+            try:
+                rail_lines = ox.projection.project_gdf(rail_lines)
+            except Exception:
+                rail_lines = rail_lines.to_crs(g_proj.graph['crs'])
+            
+            # Seperate rail lines into types
+            rail_rail = rail_lines[rail_lines['railway'] == 'rail']
+            rail_light = rail_lines[rail_lines['railway'] == 'light_rail']
+            rail_subway = rail_lines[rail_lines['railway'] == 'subway']
+            if not rail_rail.empty:
+                rail_rail.plot(ax=ax, color=THEME['rail'], linewidth=0.6, zorder=1.0)
+            if not rail_light.empty:
+                rail_light.plot(ax=ax, color=THEME['rail_light'], linewidth=0.4, zorder=1.0)
+            if not rail_subway.empty:
+                rail_subway.plot(ax=ax, color=THEME['rail_subway'], linewidth=0.4, zorder=1.0)
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
     edge_colors = get_edge_colors_by_type(g_proj)
