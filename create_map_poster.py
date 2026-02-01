@@ -43,7 +43,6 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 THEMES_DIR = "themes"
 FONTS_DIR = "fonts"
-POSTERS_DIR = "posters"
 
 FILE_ENCODING = "utf-8"
 
@@ -144,18 +143,18 @@ def is_latin_script(text):
     return (latin_count / total_alpha) > 0.8
 
 
-def generate_output_filename(city, theme_name, output_format):
+def generate_output_filename(directory, city, theme_name, output_format):
     """
     Generate unique output filename with city, theme, and datetime.
     """
-    if not os.path.exists(POSTERS_DIR):
-        os.makedirs(POSTERS_DIR)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     city_slug = city.lower().replace(" ", "_")
     ext = output_format.lower()
     filename = f"{city_slug}_{theme_name}_{timestamp}.{ext}"
-    return os.path.join(POSTERS_DIR, filename)
+    return os.path.join(directory, filename)
 
 
 def get_available_themes():
@@ -871,6 +870,7 @@ Examples:
         """,
     )
 
+    parser.add_argument('--output', '-o', type=str, default=None, help='Output directory (optional)')
     parser.add_argument("--city", "-c", type=str, help="City name")
     parser.add_argument("--country", "-C", type=str, help="Country name")
     parser.add_argument(
@@ -985,6 +985,9 @@ Examples:
             f"⚠ Height {args.height} exceeds the maximum allowed limit of 20. It's enforced as max limit 20."
         )
         args.height = 20.0
+        
+    if args.output is None:
+        args.output = os.path.join(os.getcwd(), "posters")
 
     available_themes = get_available_themes()
     if not available_themes:
@@ -1023,7 +1026,7 @@ Examples:
 
         for theme_name in themes_to_generate:
             THEME = load_theme(theme_name)
-            output_file = generate_output_filename(args.city, theme_name, args.format)
+            output_file = generate_output_filename(args.output, args.city, theme_name, args.format)
             create_poster(
                 args.city,
                 args.country,
