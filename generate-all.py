@@ -56,20 +56,6 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
         help="Override country text displayed on poster",
     )
     parser.add_argument(
-        "--theme",
-        "-t",
-        type=str,
-        default="terracotta",
-        help="Theme name (default: terracotta)",
-    )
-    parser.add_argument(
-        "--all-themes",
-        "--All-themes",
-        dest="all_themes",
-        action="store_true",
-        help="Generate posters for all themes",
-    )
-    parser.add_argument(
         "--distance",
         "-d",
         type=int,
@@ -89,9 +75,6 @@ This will save the posters in `./posters/Japan/Tokyo/20km/15in_x_20in/v1/`.
         type=float,
         default=16,
         help="Image height in inches (default: 16, max: 20)",
-    )
-    parser.add_argument(
-        "--list-themes", action="store_true", help="List all available themes"
     )
     parser.add_argument(
         "--display-city",
